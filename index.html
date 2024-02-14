@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Dinorun</title>
+	<style type="text/css">
+		* {
+			padding: 0px;
+			margin: 0px;
+			box-sizing: border-box;
+		}
+
+		body {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+
+			min-height: 100vh;
+		}
+
+		#canvas {
+			border: 2px solid #000;
+		}
+	</style>
+</head>
+<body>
+	<h1>Dinorun</h1>
+	<canvas id="canvas"></canvas>
+</body>
+<script type="text/javascript">
+	const canvas = document.querySelector("#canvas")
+	const ctx = canvas.getContext("2d")
+
+	canvas.width = 500
+	canvas.height = 300	
+
+	let game = false
+
+	let gravity = 1
+	let diff = 1
+
+	//Player
+	class Player {
+		constructor() {
+			this.size = { x: 40, y: 50 }
+			this.position = { x: 70, y: canvas.height - this.size.y}
+			this.vertical = 0
+			this.jump = false
+		}
+		draw() {
+			if (this.jump == true) {
+				this.position.y+= this.vertical
+				this.vertical+= gravity
+				if (this.position.y > canvas.height - this.size.y) {
+					this.position.y = canvas.height - this.size.y
+					this.vertical = 0
+					this.jump = false
+				}
+			}
+
+			ctx.fillStyle = '#000'
+			ctx.fillRect(
+				this.position.x,
+				this.position.y,
+				this.size.x,
+				this.size.y
+			)
+		}
+	}
+
+	class Enemy {
+		constructor() {
+			this.size = { x: 60, y: 40 }
+			this.position = { x: canvas.width - this.size.x, y: canvas.height - this.size.y}
+			this.horizontal = 10 * diff
+		}
+		draw() {
+			ctx.fillStyle = '#F00'
+			ctx.fillRect(
+				this.position.x-= this.horizontal,
+				this.position.y,
+				this.size.x,
+				this.size.y
+			)
+		}
+	}
+
+	const dino = new Player()
+	const enemy = new Enemy()
+
+	function animate() {
+		window.requestAnimationFrame(animate)
+
+		//Background
+		ctx.fillStyle = '#0F0'
+		ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+		dino.draw()
+		enemy.draw()
+
+		if (enemy.position.x < -1 * enemy.size.x) {
+			enemy.position.x = canvas.width
+		}
+
+		//Check Game
+		if (
+			dino.position.x < enemy.position.x + enemy.size.x &&
+			dino.position.y < enemy.position.y + enemy.size.y &&
+			dino.position.x + dino.size.x > enemy.position.x &&
+			dino.position.y + dino.size.y > enemy.position.y
+		) {
+			alert("GameOver")
+		}
+	}
+
+	document.addEventListener('keydown', function(event) {
+		animate()
+		if(event.keyCode == 38) {
+			if (dino.vertical == 0) {
+				dino.vertical = -20
+				dino.jump = true
+			}
+		}
+		if(event.keyCode == 40) {
+			if (dino.jump = true) {
+				dino.vertical = 10
+			}
+		}
+	})
+</script>
+</html>
