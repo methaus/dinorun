@@ -29,104 +29,235 @@
 	<canvas id="canvas"></canvas>
 </body>
 <script type="text/javascript">
-	const canvas = document.querySelector("#canvas")
-	const ctx = canvas.getContext("2d")
+	//Classes
+	class Ui {
+		constructor(game) {
+			this.color = "black"
+			this.fontSize = 12
+			this.fontFamily = "Helvetica"
 
-	canvas.width = 500
-	canvas.height = 300	
+			this.game = game
 
-	let game = false
+			this.x = this.game.width - 20
+			this.y = 20
+		}
+		draw(context) {
+			context.save()
 
-	let gravity = 1
-	let diff = 1
+			if (this.game.gameOver) {
+				this.x = this.game.width / 2
+				this.y = this.game.height / 2
 
-	//Player
+				context.fillStyle = this.color
+				context.textAlign = "center"
+				context.font = `${this.fontSize * 2}px ${this.fontFamily}`
+				context.fillText(`Game Over`, this.x, this.y)
+				context.font = `${this.fontSize}px ${this.fontFamily}`
+				context.fillText(`score: ${this.game.time}`, this.x, this.y + 20)
+			} else {
+				context.fillStyle = this.color
+				context.textAlign = "right"
+				context.font = `${this.fontSize}px ${this.fontFamily}`
+				context.fillText(`${this.game.time}`, this.x, this.y)
+				context.fillText(`lv: ${this.game.lvl}`, this.x, this.y + 12)
+			}
+
+			context.restore()
+		}
+	}
+
 	class Player {
-		constructor() {
-			this.size = { x: 40, y: 50 }
-			this.position = { x: 70, y: canvas.height - this.size.y}
+		constructor(game) {
+			this.game = game
+
+			this.width = 40
+			this.height = 40
+
+			this.x = 40
+			this.y = game.height - this.height
+			//vertical move
 			this.vertical = 0
 			this.jump = false
 		}
-		draw() {
+		draw(context) {
+			context.save()
+
+			context.fillStyle = "black"
+			context.fillRect(this.x, this.y, this.width, this.height)
+
+			context.restore()
+		}
+		update() {
 			if (this.jump == true) {
-				this.position.y+= this.vertical
-				this.vertical+= gravity
-				if (this.position.y > canvas.height - this.size.y) {
-					this.position.y = canvas.height - this.size.y
+				this.y+= this.vertical
+				this.vertical+= this.game.gravity
+				if (this.y > canvas.height - this.height) {
+					this.y = canvas.height - this.height
 					this.vertical = 0
 					this.jump = false
 				}
 			}
-
-			ctx.fillStyle = '#000'
-			ctx.fillRect(
-				this.position.x,
-				this.position.y,
-				this.size.x,
-				this.size.y
-			)
 		}
 	}
 
 	class Enemy {
-		constructor() {
-			this.size = { x: 60, y: 40 }
-			this.position = { x: canvas.width - this.size.x, y: canvas.height - this.size.y}
-			this.horizontal = 10 * diff
+		constructor(game, type) {
+			this.game = game
+
+			this.type = type
+			this.markedForDeletion = false
+
+			this.width = 60
+			this.height = 40
+
+			this.x = this.game.width
+			if(this.type == "ground") this.y = this.game.height - this.height
+			else this.y = 40
+			//horizontal move
+			this.horizontal = 7 * (this.game.lvl * 0.2 + 1)
 		}
-		draw() {
-			ctx.fillStyle = '#F00'
-			ctx.fillRect(
-				this.position.x-= this.horizontal,
-				this.position.y,
-				this.size.x,
-				this.size.y
+		draw(context) {
+			context.save()
+
+			context.fillStyle = "red"
+			context.fillRect(this.x, this.y, this.width, this.height)
+
+			context.restore()
+		}
+		update() {
+			this.x-= this.horizontal
+			if (this.x + this.width < 0) this.markedForDeletion = true
+		}
+	}
+
+	class Game {
+		constructor(width, height) {
+			this.width = width
+			this.height = height
+
+			this.time = 0
+			this.gravity = 1
+			this.lvl = 1
+			this.keys = []
+
+			this.ui = new Ui(this)
+			this.player = new Player(this)
+			
+			this.enemyTimer = Math.random() * 100
+			this.enemyRespawn = 100
+			this.enemies = []
+
+			this.gameRunning = false
+			this.gameOver = false
+
+			window.addEventListener('keydown', (e) => {
+				if(e.keyCode == 38 || e.keyCode == 32) {
+					if (this.player.vertical == 0) {
+						this.player.vertical = -13
+						this.player.jump = true
+					}
+				}
+				if(e.keyCode == 40) {
+					if (this.player.jump = true) {
+						this.player.vertical = 10
+					}
+				}
+			});
+		}
+		draw(context) {
+			this.ui.draw(context)
+			this.player.draw(context)
+			this.enemies.forEach(enemy => {
+				enemy.draw(context)
+			})
+		}
+		update() {
+			if (!this.gameOver) {
+				//lv cap
+				if(this.time > this.lvl * 500) {
+					this.lvl++
+				}
+				//enemies generation
+				if (this.enemyTimer < this.enemyRespawn) {
+					this.enemyTimer++
+				} else {
+					if (this.lvl < 3) {
+						this.enemies.push(new Enemy(this, "ground"))
+					} else if (Math.random() < 0.7) this.enemies.push(new Enemy(this, "ground"))
+					else this.enemies.push(new Enemy(this, "air"))
+
+					this.enemyTimer = Math.random() * 50 * (this.lvl * 0.1 + 1)
+				}
+				//game update
+				this.player.update()
+				this.enemies.forEach(enemy => {
+					enemy.update()
+					if (this.checkCollision(this.player, enemy)) {
+						this.gameOver = true
+					}
+				})
+				//clear enemies
+				this.enemies = this.enemies.filter(enemy => !enemy.markedForDeletion);
+				//game time
+				this.time++
+			}
+		}
+		checkCollision(obj1, obj2) {
+			return (
+				obj1.x < obj2.x + obj2.width &&
+				obj1.x + obj1.width > obj2.x &&
+				obj1.y < obj2.y + obj2.height &&
+				obj1.height + obj1.y > obj2.y
 			)
 		}
 	}
 
-	const dino = new Player()
-	const enemy = new Enemy()
+	//Game vars
+	const canvas = document.querySelector("#canvas")
+	const ctx = canvas.getContext("2d")
 
-	function animate() {
-		window.requestAnimationFrame(animate)
+	canvas.width = 600
+	canvas.height = 150
 
-		//Background
-		ctx.fillStyle = '#0F0'
-		ctx.fillRect(0, 0, canvas.width, canvas.height)
+	ctx.save()
 
-		dino.draw()
-		enemy.draw()
+	ctx.fillStyle = "black"
+	ctx.textAlign = "center"
+	ctx.textBaseline = "middle"
+	ctx.font = `${24}px Helvetica`
+	ctx.fillText(`Press \"Enter\"" to play`, canvas.width / 2, canvas.height / 2)
 
-		if (enemy.position.x < -1 * enemy.size.x) {
-			enemy.position.x = canvas.width
-		}
+	ctx.restore()
 
-		//Check Game
-		if (
-			dino.position.x < enemy.position.x + enemy.size.x &&
-			dino.position.y < enemy.position.y + enemy.size.y &&
-			dino.position.x + dino.size.x > enemy.position.x &&
-			dino.position.y + dino.size.y > enemy.position.y
-		) {
-			alert("GameOver")
-		}
+	let game = new Game(canvas.width, canvas.height)
+	let lastTime = 0
+
+	const animate = (timeStamp) => {
+		const deltaTime = timeStamp - lastTime
+		lastTime = timeStamp
+
+		ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+		if (!game.gameOver) requestAnimationFrame(animate)
+
+		game.draw(ctx);
+		game.update();
 	}
 
-	document.addEventListener('keydown', function(event) {
-		animate()
-		if(event.keyCode == 38) {
-			if (dino.vertical == 0) {
-				dino.vertical = -20
-				dino.jump = true
+	window.addEventListener('keydown', (e) => {
+		if(e.keyCode == 13) { 
+			if (game.gameRunning == false) {
+				game.gameRunning = true
+				animate(0)
+			} else if (game.gameOver) {
+				console.log("gameOver = true")
+				game = new Game(canvas.width, canvas.height)
+				game.gameRunning = true
+				let lastTime = 0
+				animate(0)
 			}
 		}
-		if(event.keyCode == 40) {
-			if (dino.jump = true) {
-				dino.vertical = 10
-			}
-		}
-	})
+	});
+	
 </script>
 </html>
